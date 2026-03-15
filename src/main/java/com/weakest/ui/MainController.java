@@ -88,6 +88,7 @@ public class MainController {
     private ExplanationWindow explanationWindow;
     private ComparisonWindow  comparisonWindow;
     private BranchExplorerWindow branchExplorerWindow;
+    private ModelComparisonWindow modelComparisonWindow;
     private final int[] shadowPCs = new int[64];
 
     public MainController() {
@@ -168,8 +169,11 @@ public class MainController {
         w.show();
     }
 
+    // =========================================================================
     // UI construction
+    // =========================================================================
 
+    @SuppressWarnings("all")
     private void buildUI() {
         root = new BorderPane();
         root.setStyle("-fx-background-color:#1e1e2e;");
@@ -206,31 +210,55 @@ public class MainController {
         quizBtn.setOnAction(e -> openQuizWindow());
         Tooltip.install(quizBtn, tip("Test your understanding with 5 interactive litmus questions."));
 
-        Button compareBtn = btn("⚖  Compare SC vs WEAKEST", "#94e2d5");
+        Button compareBtn = btn("⚖  Compare Models", "#94e2d5");
         compareBtn.setOnAction(e -> openComparisonWindow());
         Tooltip.install(compareBtn, tip("Enumerate all executions and compare SC vs WEAKEST outcomes."));
 
         Button branchBtn = btn("⑂  Branch Explorer", "#ff6600");
         branchBtn.setOnAction(e -> openBranchExplorer());
-        Tooltip.install(branchBtn, tip("Visualise all possible execution branches as a tree, and explore how each rf choice leads to a different outcome."));
+        Tooltip.install(branchBtn, tip("Visualise all possible execution branches as a tree."));
+
+        Button modelCmpBtn = btn("🔬  Compare All Models", "#b4befe");
+        modelCmpBtn.setOnAction(e -> openModelComparison());
+        Tooltip.install(modelCmpBtn, tip("Compare SC, TSO, PSO, RA and WEAKEST side-by-side for this program."));
 
         Label litmusLbl = styled("📚  Litmus Tests  (click to load):", "#cdd6f4", 13, true);
-        HBox row1 = new HBox(6), row2 = new HBox(6);
+        HBox row1 = new HBox(6), row2 = new HBox(6), row3 = new HBox(6),
+                row4 = new HBox(6);
+        //noinspection CssUnknownUnit,CssUnknownProperty,CssInvalidPropertyValue
         String[][] tests = {
-                {"SB",   "#89dceb", litmusSB(),   "Store Buffering — r1=0,r2=0 ALLOWED on x86"},
-                {"LB",   "#a6e3a1", litmusLB(),   "Load Buffering — r1=1,r2=1 ALLOWED"},
-                {"MP",   "#fab387", litmusMP(),   "Message Passing — acq/rel guarantees ordering"},
-                {"CYC",  "#f38ba8", litmusCYC(),  "Cycle / OOTA — r1=1,r2=1 FORBIDDEN"},
-                {"IRIW", "#cba6f7", litmusIRIW(), "4-thread non-multi-copy atomicity test"}
+                // Row 1 — classic 2-thread
+                {"SB",       "#89dceb", litmusSB(),       "Store Buffering — r1=0,r2=0 ALLOWED on x86"},
+                {"LB",       "#a6e3a1", litmusLB(),       "Load Buffering — r1=1,r2=1 ALLOWED"},
+                {"MP",       "#fab387", litmusMP(),       "Message Passing — acq/rel guarantees ordering"},
+                {"CYC",      "#f38ba8", litmusCYC(),      "Cycle / OOTA — r1=1,r2=1 FORBIDDEN"},
+                // Row 2 — coherence & multi-thread
+                {"IRIW",     "#cba6f7", litmusIRIW(),     "4-thread non-multi-copy atomicity test"},
+                {"CoRR",     "#89dceb", litmusCoRR(),     "Coherence Read-Read — r1=1,r2=0 FORBIDDEN"},
+                {"CoRW",     "#f9e2af", litmusCoRW(),     "Coherence Read-Write — rf must respect co"},
+                {"2+2W",     "#a6e3a1", litmus2p2W(),     "Two-plus-two writes — co must be consistent"},
+                // Row 3 — causality & atomic
+                {"WRC",      "#fab387", litmusWRC(),      "Write-Read Causality — 3-thread causality chain"},
+                {"ISA2",     "#cba6f7", litmusISA2(),     "Store Forwarding + Coherence — 3-thread"},
+                {"RMW",      "#89dceb", litmusRMW(),      "Read-Modify-Write — atomic increment pattern"},
+                {"3.SB",     "#f38ba8", litmus3SB(),      "3-thread Store Buffering ring — r1=0,r2=0,r3=0 ALLOWED"},
+                // Row 4 — OOTA & fence variants
+                {"OOTA",     "#f38ba8", litmusOOTA(),     "Out-of-Thin-Air — central dissertation concept, FORBIDDEN"},
+                {"LB+fence", "#a6e3a1", litmusLBfence(),  "LB with SC ops — r1=1,r2=1 now FORBIDDEN"},
+                {"SB+fence", "#89dceb", litmusSBfence(),  "SB with SC ops — r1=0,r2=0 now FORBIDDEN"},
+                {"MP+rlx",   "#f9e2af", litmusMPrelaxed(),"MP without acq/rel — r1=1,r2=0 now ALLOWED"},
         };
         for (int i = 0; i < tests.length; i++) {
             final String n=tests[i][0], c=tests[i][1], p=tests[i][2], t=tests[i][3];
             Button b = new Button(n);
-            b.setPrefWidth(Math.max(60, leftW * 0.15));
-            b.setStyle("-fx-background-color:"+c+";-fx-text-fill:#1e1e2e;-fx-font-weight:bold;-fx-padding:6;");
+            b.setPrefWidth(Math.max(55, leftW * 0.13));
+            b.setStyle("-fx-background-color:"+c+";-fx-text-fill:#1e1e2e;-fx-font-weight:bold;-fx-padding:5;");
             b.setOnAction(e->{ programInput.setText(p); currentLitmus=n; log("📚 Loaded: "+n); });
             Tooltip.install(b, tip(t));
-            if (i < 3) row1.getChildren().add(b); else row2.getChildren().add(b);
+            if      (i < 4)  row1.getChildren().add(b);
+            else if (i < 8)  row2.getChildren().add(b);
+            else if (i < 12) row3.getChildren().add(b);
+            else             row4.getChildren().add(b);
         }
 
         Label threadLbl = styled("🧵  Execute Thread:", "#cdd6f4", 13, true);
@@ -295,8 +323,8 @@ public class MainController {
         logArea.setStyle("-fx-control-inner-background:#313244;-fx-text-fill:#a6e3a1;");
 
         leftContent.getChildren().addAll(
-                inputLbl, programInput, loadBtn, explainBtn, quizBtn, compareBtn, branchBtn,
-                litmusLbl, row1, row2,
+                inputLbl, programInput, loadBtn, explainBtn, quizBtn, compareBtn, branchBtn, modelCmpBtn,
+                litmusLbl, row1, row2, row3, row4,
                 threadLbl, threadButtonsBox, actionRow,
                 contextPanel, forbiddenPanel, hintBox,
                 logLbl, logArea);
@@ -327,8 +355,7 @@ public class MainController {
         for (String[] item : new String[][]{
                 {"#fab387","INIT"},{"#a6e3a1","READ"},{"#f38ba8","WRITE"},
                 {"#89b4fa","─  po"},{"#a6e3a1","─  rf"},
-                {"#cba6f7","╌  co"},{"#94e2d5","━  sw"},
-                {"#ff6600","╌  # (conflict)"}}) {
+                {"#cba6f7","╌  co"},{"#94e2d5","━  sw"}}) {
             HBox lr = new HBox(6); lr.setAlignment(Pos.CENTER_LEFT);
             javafx.scene.shape.Rectangle dot = new javafx.scene.shape.Rectangle(10,10);
             dot.setArcWidth(3); dot.setArcHeight(3); dot.setFill(Color.web(item[0]));
@@ -395,7 +422,9 @@ public class MainController {
                 "-fx-background-radius:4;";
     }
 
+    // =========================================================================
     // Context panel helpers
+    // =========================================================================
 
     private void setContext(String title, String body, String colour) {
         stopContextPulse();
@@ -490,7 +519,9 @@ public class MainController {
         }
     }
 
+    // =========================================================================
     // Forbidden Zone panel
+    // =========================================================================
 
     private void refreshForbiddenZone() {
         if (program == null || currentLitmus == null || executionState == null) {
@@ -614,6 +645,73 @@ public class MainController {
                     new String[]{"r1=0,r2=0,r3=0,r4=0", "ALLOWED",  "both readers ran before any writes"},
                     new String[]{"r1=1,r2=1,r3=1,r4=0", "ALLOWED",  "T3 saw both writes, T4 only saw Y"}
             );
+            case "CoRR" -> List.of(
+                    new String[]{"r1=1, r2=1", "ALLOWED",  "both threads saw the new write — coherent"},
+                    new String[]{"r1=0, r2=0", "ALLOWED",  "both threads saw the initial value"},
+                    new String[]{"r1=0, r2=1", "ALLOWED",  "T3 ran before T2 saw the write"},
+                    new String[]{"r1=1, r2=0", "FORBIDDEN", "coherence violation — T2 saw new X but T3 didn't"}
+            );
+            case "2+2W" -> List.of(
+                    new String[]{"X=1, Y=2", "ALLOWED",  "T1's X write and T2's Y write won co"},
+                    new String[]{"X=2, Y=1", "ALLOWED",  "T2's X write and T1's Y write won co"},
+                    new String[]{"X=1, Y=1", "ALLOWED",  "T1 won both coherence orders"},
+                    new String[]{"X=2, Y=2", "ALLOWED",  "T2 won both coherence orders"}
+            );
+            case "WRC" -> List.of(
+                    new String[]{"r1=1, r2=1, r3=1", "ALLOWED",  "full causality chain propagated"},
+                    new String[]{"r1=0, r2=0, r3=0", "ALLOWED",  "T3 ran before T1 wrote"},
+                    new String[]{"r1=1, r2=1, r3=0", "FORBIDDEN", "causality violation — T3 saw Y=1 but not X=1"},
+                    new String[]{"r1=1, r2=0, r3=0", "ALLOWED",  "T2 saw X=1 but wrote Y=0, T3 read initial"}
+            );
+            case "RMW" -> List.of(
+                    new String[]{"r1=0, r2=1", "ALLOWED",  "T1 read X=0 then T2 read X=1 — correct ordering"},
+                    new String[]{"r1=1, r2=0", "ALLOWED",  "T2 read X=0 then T1 read X=1 — correct ordering"},
+                    new String[]{"r1=0, r2=0", "FORBIDDEN", "both read initial — lost update, one write invisible"},
+                    new String[]{"r1=1, r2=1", "FORBIDDEN", "both read each other's write — impossible without atomics"}
+            );
+            case "ISA2" -> List.of(
+                    new String[]{"r1=1, r2=1, r3=1", "ALLOWED",  "full chain propagated with sync"},
+                    new String[]{"r1=0, r2=0, r3=0", "ALLOWED",  "T2 and T3 ran before T1"},
+                    new String[]{"r1=1, r2=1, r3=0", "FORBIDDEN", "causality violation — T3 saw Z=1 but not X=1"},
+                    new String[]{"r1=1, r2=0, r3=0", "ALLOWED",  "T2 forwarded Y=1 but Z=0 when T3 read"}
+            );
+            case "CoRW" -> List.of(
+                    new String[]{"r1=0", "ALLOWED",  "T2 read initial X=0, then wrote X=2"},
+                    new String[]{"r1=1", "ALLOWED",  "T2 read T1's X=1, then co(W1,W2) holds naturally"},
+                    new String[]{"r1=1 then co(W2,W1)", "FORBIDDEN", "T2 read X=1 but its write came before T1's in co — violation"}
+            );
+            case "LB+fence" -> List.of(
+                    new String[]{"r1=0, r2=0", "ALLOWED",  "both threads read initial values — SC"},
+                    new String[]{"r1=1, r2=0", "ALLOWED",  "T1 saw T2's write, T2 read initial"},
+                    new String[]{"r1=0, r2=1", "ALLOWED",  "T2 saw T1's write, T1 read initial"},
+                    new String[]{"r1=1, r2=1", "FORBIDDEN", "SC ops forbid load buffering — no reordering!"}
+            );
+            case "SB+fence" -> List.of(
+                    new String[]{"r1=1, r2=1", "ALLOWED",  "SC — both threads saw each other's writes"},
+                    new String[]{"r1=1, r2=0", "ALLOWED",  "T1 saw T2's write, T2 read initial X"},
+                    new String[]{"r1=0, r2=1", "ALLOWED",  "T2 saw T1's write, T1 read initial Y"},
+                    new String[]{"r1=0, r2=0", "FORBIDDEN", "SC fences drain store buffer — weak outcome impossible!"}
+            );
+            case "MP+rlx" -> List.of(
+                    new String[]{"r1=1, r2=1", "ALLOWED",  "both reads succeeded — lucky ordering"},
+                    new String[]{"r1=0, r2=0", "ALLOWED",  "T2 ran before T1 wrote anything"},
+                    new String[]{"r1=0, r2=1", "ALLOWED",  "T2 saw X=1 but not Y=1 yet"},
+                    new String[]{"r1=1, r2=0", "ALLOWED",  "WITHOUT acq/rel this is now ALLOWED! No sw edge."}
+            );
+            case "OOTA" -> List.of(
+                    new String[]{"r1=0, r2=0", "ALLOWED",  "only buildable outcome — no thin-air values"},
+                    new String[]{"r1=1, r2=1", "FORBIDDEN", "OOTA — r1=1 requires Y=1 requires r2=1 requires X=1 requires r1=1 — circular!"},
+                    new String[]{"r1=1, r2=0", "FORBIDDEN", "r1=1 requires X=1 which requires r2=1 — contradiction"},
+                    new String[]{"r1=0, r2=1", "FORBIDDEN", "r2=1 requires Y=1 which requires r1=1 — contradiction"}
+            );
+            case "3.SB" -> List.of(
+                    new String[]{"r1=0, r2=0, r3=0", "ALLOWED",  "3-way store buffering — all three reads saw initial values"},
+                    new String[]{"r1=1, r2=0, r3=0", "ALLOWED",  "T1 saw T2's Y, others saw initial values"},
+                    new String[]{"r1=0, r2=1, r3=0", "ALLOWED",  "T2 saw T3's Z, others saw initial values"},
+                    new String[]{"r1=0, r2=0, r3=1", "ALLOWED",  "T3 saw T1's X, others saw initial values"},
+                    new String[]{"r1=1, r2=1, r3=1", "ALLOWED",  "SC outcome — all threads saw each other's writes"},
+                    new String[]{"r1=1, r2=1, r3=0", "ALLOWED",  "T1 and T2 saw cross-thread writes, T3 saw initial X"}
+            );
             default -> List.of();
         };
     }
@@ -663,7 +761,9 @@ public class MainController {
         return executionState.getAllLocalVars();
     }
 
+    // =========================================================================
     // Inline read-from choice
+    // =========================================================================
 
     private void showInlineChoice(int idx, Instruction instr, List<Event> valid) {
         pendingThreadIdx = idx;
@@ -690,11 +790,6 @@ public class MainController {
         final Event[] chosen = {valid.get(0)};
         List<VBox> cards = new ArrayList<>();
 
-        // Branch letters: A, B, C, ...
-        String[] branchLetters = {"A", "B", "C", "D", "E", "F"};
-        String[] branchColours = {"#89b4fa", "#f9e2af", "#cba6f7", "#94e2d5", "#fab387", "#a6e3a1"};
-        boolean multipleBranches = valid.size() > 1;
-
         for (int i = 0; i < valid.size(); i++) {
             Event w     = valid.get(i);
             boolean isCross  = w.getThreadId() != 0 && w.getThreadId() != idx + 1;
@@ -702,8 +797,6 @@ public class MainController {
             boolean syncing  = (w.getMemoryOrder() == MemoryOrder.RELEASE || w.getMemoryOrder() == MemoryOrder.SC)
                     && (instr.getMemoryOrder() == MemoryOrder.ACQUIRE || instr.getMemoryOrder() == MemoryOrder.SC);
             boolean first    = (i == 0);
-            String branchLetter = (i < branchLetters.length) ? branchLetters[i] : String.valueOf((char)('A'+i));
-            String branchColour = (i < branchColours.length) ? branchColours[i] : "#cdd6f4";
 
             VBox card = new VBox(5);
             card.setPadding(new Insets(10, 12, 10, 12));
@@ -716,17 +809,6 @@ public class MainController {
             cards.add(card);
 
             HBox row = new HBox(10); row.setAlignment(Pos.CENTER_LEFT);
-
-            // ── Option A: Branch badge ────────────────────────────────
-            if (multipleBranches) {
-                Label branchBadge = new Label(" ⑂ " + branchLetter + " ");
-                branchBadge.setFont(Font.font("Monospaced", FontWeight.BOLD, 11));
-                branchBadge.setTextFill(Color.web("#1e1e2e"));
-                branchBadge.setStyle("-fx-background-color:" + branchColour + ";" +
-                        "-fx-background-radius:4;-fx-padding:2 6;");
-                row.getChildren().add(branchBadge);
-            }
-
             Label badge = new Label(" " + w.getValue() + " ");
             badge.setFont(Font.font("Arial", FontWeight.BOLD, 20));
             badge.setTextFill(Color.web("#1e1e2e"));
@@ -756,10 +838,6 @@ public class MainController {
                     : isCross
                     ? "⚡ Weak memory! " + instr.getLocalVar() + " sees another thread's write.\n   IMPOSSIBLE under Sequential Consistency!"
                     : "📖 Same-thread earlier write.";
-            // Append conflict note when multiple branches exist
-            if (multipleBranches) {
-                meaning += "\n⑂  Choosing this branch conflicts with the other option(s).";
-            }
             Label mLbl = new Label(meaning);
             mLbl.setWrapText(true);
             mLbl.setFont(Font.font("Arial", 12));
@@ -799,32 +877,15 @@ public class MainController {
                 Instruction si   = pendingInstr;
                 Event pick       = chosen[0];
 
-                // Capture branches not taken before clearing (Option B)
-                List<Event> notTaken = new ArrayList<>(pendingValid);
-                notTaken.remove(pick);
-
                 pendingThreadIdx = -1;
                 pendingInstr = null; pendingRead = null; pendingValid = null;
                 inlineChoiceBox.getChildren().clear();
                 stopContextPulse();
 
-                // Log branch taken (Option A)
-                if (!notTaken.isEmpty()) {
-                    String pickedSrc = pick.getThreadId() == 0 ? "initial value"
-                            : "Thread " + pick.getThreadId() + "'s write";
-                    log("⑂  Branch taken: reading from " + pickedSrc
-                            + "  (" + notTaken.size() + " conflicting branch(es) not taken)");
-                }
-
                 ReadEvent realRead = new ReadEvent(saved + 1, si.getVariable(),
                         si.getMemoryOrder(), si.getLocalVar());
 
                 completeRead(saved, si, realRead, pick);
-
-                // Option B: draw conflict edges from the chosen read to each rejected write
-                if (!notTaken.isEmpty()) {
-                    drawConflictEdges(realRead, notTaken);
-                }
 
                 shadowPCs[saved] = executionState.isThreadDone(saved)
                         ? program.getThreads().get(saved).size()
@@ -848,7 +909,9 @@ public class MainController {
         startContextPulse("#f9e2af");
     }
 
+    // =========================================================================
     // Hint panel
+    // =========================================================================
 
     private VBox buildHintRow() {
         VBox box = new VBox(6);
@@ -955,7 +1018,9 @@ public class MainController {
         d.show();
     }
 
+    // =========================================================================
     // Explanation window
+    // =========================================================================
 
     private void openExplanationWindow() {
         if (explanationWindow == null) explanationWindow = new ExplanationWindow();
@@ -966,6 +1031,16 @@ public class MainController {
 
     private void openQuizWindow() {
         new QuizWindow().show();
+    }
+
+    private void openModelComparison() {
+        if (program == null) {
+            log("⚠️ Load a program first before opening Model Comparison!");
+            return;
+        }
+        String name = currentLitmus != null ? currentLitmus : "custom";
+        modelComparisonWindow = new ModelComparisonWindow(program, name);
+        modelComparisonWindow.show();
     }
 
     private void openBranchExplorer() {
@@ -1020,7 +1095,9 @@ public class MainController {
             explanationWindow.update(eventStructure, executionState, program, msg);
     }
 
+    // =========================================================================
     // Thread buttons
+    // =========================================================================
 
     private void updateButtons() {
         threadButtonsBox.getChildren().clear();
@@ -1064,7 +1141,9 @@ public class MainController {
         threadButtonsBox.getChildren().add(row);
     }
 
+    // =========================================================================
     // Undo
+    // =========================================================================
 
     private void pushSnapshot() {
         if (program == null) return;
@@ -1179,7 +1258,9 @@ public class MainController {
 
     private int[] getField_threadPCs() { return Arrays.copyOf(shadowPCs, program.getThreadCount()); }
 
+    // =========================================================================
     // Layout helpers
+    // =========================================================================
 
     private double columnX(int tid) {
         int total=(program!=null?program.getThreadCount():0)+1;
@@ -1196,7 +1277,9 @@ public class MainController {
                 && (r.getMemoryOrder()==MemoryOrder.ACQUIRE||r.getMemoryOrder()==MemoryOrder.SC);
     }
 
+    // =========================================================================
     // Program lifecycle
+    // =========================================================================
 
     private void loadProgram() {
         Event.resetCounter(); undoStack.clear(); Arrays.fill(shadowPCs,0);
@@ -1209,6 +1292,17 @@ public class MainController {
         else if (text.contains("MESSAGE PASSING"))                       currentLitmus = "MP";
         else if (text.contains("CYCLE") && text.contains("CYC"))         currentLitmus = "CYC";
         else if (text.contains("IRIW"))                                  currentLitmus = "IRIW";
+        else if (text.contains("CORR"))                                  currentLitmus = "CoRR";
+        else if (text.contains("2+2W"))                                  currentLitmus = "2+2W";
+        else if (text.contains("WRC"))                                   currentLitmus = "WRC";
+        else if (text.contains("RMW"))                                   currentLitmus = "RMW";
+        else if (text.contains("ISA2"))                                  currentLitmus = "ISA2";
+        else if (text.contains("CORW"))                                  currentLitmus = "CoRW";
+        else if (text.contains("LB+FENCE") || (text.contains("LOAD BUFFERING") && text.contains("SC FENCE"))) currentLitmus = "LB+fence";
+        else if (text.contains("SB+FENCE") || (text.contains("STORE BUFFERING") && text.contains("SC FENCE"))) currentLitmus = "SB+fence";
+        else if (text.contains("MP+RLX") || (text.contains("MESSAGE PASSING") && text.contains("RELAXED"))) currentLitmus = "MP+rlx";
+        else if (text.contains("OOTA") || text.contains("OUT-OF-THIN-AIR"))  currentLitmus = "OOTA";
+        else if (text.contains("3.SB") || (text.contains("3-THREAD") && text.contains("STORE BUFFERING"))) currentLitmus = "3.SB";
         // else: leave currentLitmus as whatever was set by the litmus button
         try {
             program = new ProgramParser().parse(programInput.getText());
@@ -1333,8 +1427,8 @@ public class MainController {
             return; // camera not ready yet
         }
 
-        // Find nearest node
-        double NODE_THRESHOLD = 120;
+        // Find nearest node — tight threshold so only direct clicks on nodes register
+        double NODE_THRESHOLD = 40;
         org.graphstream.graph.Node nearest = null;
         double bestDist = Double.MAX_VALUE;
         for (org.graphstream.graph.Node n : graph) {
@@ -1348,17 +1442,15 @@ public class MainController {
             return;
         }
 
-        // Find nearest edge midpoint
-        double EDGE_THRESHOLD = 80;
+        // Find nearest edge — use point-to-segment distance, not midpoint distance
+        double EDGE_THRESHOLD = 12;
         org.graphstream.graph.Edge nearestEdge = null;
         double bestEdgeDist = Double.MAX_VALUE;
         for (org.graphstream.graph.Edge e : graph.edges().toList()) {
             double[] xy0 = nodeXY.get(e.getSourceNode().getId());
             double[] xy1 = nodeXY.get(e.getTargetNode().getId());
             if (xy0 == null || xy1 == null) continue;
-            double mx = (xy0[0] + xy1[0]) / 2;
-            double my = (xy0[1] + xy1[1]) / 2;
-            double dist = Math.sqrt(Math.pow(clickGX - mx, 2) + Math.pow(clickGY - my, 2));
+            double dist = pointToSegmentDist(clickGX, clickGY, xy0[0], xy0[1], xy1[0], xy1[1]);
             if (dist < bestEdgeDist) { bestEdgeDist = dist; nearestEdge = e; }
         }
         if (nearestEdge != null && bestEdgeDist < EDGE_THRESHOLD) {
@@ -1367,6 +1459,17 @@ public class MainController {
             // Clicked empty space — hide tooltip
             hideTooltip();
         }
+    }
+
+    // Point-to-line-segment distance in graph units
+    private double pointToSegmentDist(double px, double py,
+                                      double ax, double ay,
+                                      double bx, double by) {
+        double dx = bx - ax, dy = by - ay;
+        if (dx == 0 && dy == 0) return Math.sqrt((px-ax)*(px-ax) + (py-ay)*(py-ay));
+        double t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / (dx*dx + dy*dy)));
+        double nx = ax + t*dx, ny = ay + t*dy;
+        return Math.sqrt((px-nx)*(px-nx) + (py-ny)*(py-ny));
     }
 
     private void explainNode(org.graphstream.graph.Node n) {
@@ -1469,15 +1572,6 @@ public class MainController {
                 rows.add(new String[]{"acquire", "T" + tgt.getThreadId() + "  e" + tgt.getId()});
                 rows.add(new String[]{"formal",  "(e" + src.getId() + ", e" + tgt.getId() + ") ∈ sw"});
                 badge = "rel / acq pair";
-            }
-            case "conflict" -> {
-                colour  = "#ff6600";  typeTag = "#  conflict";  title = "Branch Not Taken";
-                rows.add(new String[]{"write",   "e" + src.getId() + "  " + src.getVariable() + "=" + src.getValue()});
-                rows.add(new String[]{"read",    "e" + tgt.getId() + "  " + tgt.getVariable()});
-                rows.add(new String[]{"meaning", "These events are in conflict:\n" +
-                        "they cannot coexist in the same execution."});
-                rows.add(new String[]{"formal",  "e" + src.getId() + " # e" + tgt.getId()});
-                badge = "⑂ conflicting branch";
             }
             default -> {
                 colour = "#cdd6f4";  typeTag = cls != null ? cls : "edge";  title = src + " → " + tgt;
@@ -1685,7 +1779,9 @@ public class MainController {
         notifyExplanation("T"+(idx+1)+" wrote "+instr.getVariable()+"="+val);
     }
 
+    // =========================================================================
     // Graph mutation
+    // =========================================================================
 
     private void addNode(Event e, String css) {
         String id="e"+e.getId(); if(graph.getNode(id)!=null) return;
@@ -1732,28 +1828,9 @@ public class MainController {
         e.setAttribute("ui.class","sw"); e.setAttribute("ui.label","sw");
     }
 
-    private void drawConflictEdges(ReadEvent chosenRead, List<Event> rejectedWrites) {
-        for (Event w : rejectedWrites) {
-            String srcNodeId = "e" + w.getId();
-            String tgtNodeId = "e" + chosenRead.getId();
-            // Ensure source node exists (rejected write may already be in graph)
-            if (graph.getNode(srcNodeId) == null) continue;
-            if (graph.getNode(tgtNodeId) == null) continue;
-            String edgeId = "conflict_" + w.getId() + "_" + chosenRead.getId();
-            if (graph.getEdge(edgeId) != null) continue;
-            Edge e = graph.addEdge(edgeId, srcNodeId, tgtNodeId, true);
-            e.setAttribute("ui.class", "conflict");
-            e.setAttribute("ui.label", "#");
-            // Brief flash to draw attention
-            e.setAttribute("ui.style", "fill-color:#ff6600;size:3px;");
-            new Timeline(new KeyFrame(Duration.millis(700),
-                    ev -> e.removeAttribute("ui.style"))).play();
-            log("⑂  # conflict edge: e" + w.getId() + " # e" + chosenRead.getId()
-                    + "  (branch not taken: " + w.getVariable() + "=" + w.getValue() + ")");
-        }
-    }
-
+    // =========================================================================
     // Reset
+    // =========================================================================
 
     private void resetExecution() {
         if(program==null) return;
@@ -1774,7 +1851,9 @@ public class MainController {
         log("⟳ Reset."); notifyExplanation("⟳ Reset.");
     }
 
+    // =========================================================================
     // Predict outcome
+    // =========================================================================
 
     private String predictOutcome(Instruction instr, Event write, int idx) {
         if(currentLitmus==null) return "Custom program — explore freely!";
@@ -1793,11 +1872,34 @@ public class MainController {
             case "CYC"  -> isCross ? "⚠️ Would need OOTA cycle — WEAKEST blocks this."
                     : "→ r1=0 — only safe outcome.";
             case "IRIW" -> isCross ? "→ non-MCA behaviour possible! ⚡" : "→ initial value.";
+            case "CoRR" -> isCross ? "→ coherence read — must be consistent with sibling reads! ⚡"
+                    : "→ initial value.";
+            case "2+2W" -> "→ last write wins in coherence order.";
+            case "WRC"  -> isCross ? "→ causality chain — if r1=1 then r2 must follow! ⚡"
+                    : "→ initial value.";
+            case "RMW"  -> isCross ? "→ T2 sees T1's increment — correct RMW ordering. ✅"
+                    : "→ T1 reads initial 0 first.";
+            case "ISA2" -> isCross ? "→ store forwarding chain — check X is also visible! ⚡"
+                    : "→ initial value.";
+            case "CoRW"    -> isCross ? "→ T2 reads T1's write — co(W1,W2) must hold after this! ⚡"
+                    : "→ initial value — T2's write will start the co chain.";
+            case "LB+fence" -> isCross ? "→ ⚠️  SC ops forbid this! r1=1,r2=1 is FORBIDDEN."
+                    : "→ initial value (SC-safe).";
+            case "SB+fence" -> isCross ? "→ SC fence drained store buffer — seeing cross-thread value. ✅"
+                    : "→ ⚠️  SC fences mean r1=0,r2=0 is FORBIDDEN here!";
+            case "MP+rlx"  -> isCross ? "→ ⚡ r1=1,r2=0 is now ALLOWED — no acq/rel, no sw edge!"
+                    : "→ initial value.";
+            case "OOTA"    -> isCross ? "→ ❌ FORBIDDEN — would create out-of-thin-air value!"
+                    : "→ initial value (only safe choice).";
+            case "3.SB"    -> isCross ? "→ ⚡ cross-thread read — 3-way store buffer in action!"
+                    : "→ initial value — all three buffers full.";
             default     -> "Explore!";
         };
     }
 
+    // =========================================================================
     // UI helpers
+    // =========================================================================
 
     private Label styled(String text, String colour, int size, boolean bold) {
         Label l = new Label(text);
@@ -1820,7 +1922,9 @@ public class MainController {
     }
     private void log(String msg) { logArea.appendText(msg+"\n"); }
 
+    // =========================================================================
     // Litmus programs
+    // =========================================================================
 
     private String defaultProgram() {
         return "init:\n    X = 0\n    Y = 0\n\n" +
@@ -1854,6 +1958,108 @@ public class MainController {
                 "Thread 4:\n    @r3 = read(Y, rlx)\n    @r4 = read(X, rlx)";
     }
 
+    // ── New litmus tests ──────────────────────────────────────────────
+
+    private String litmusCoRR() {
+        return "// CoRR — Coherence Read-Read\n" +
+                "// If T2 reads new X, T3 must also read new X\n" +
+                "// r1=1, r2=0 FORBIDDEN\n" +
+                "init:\n    X = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n\n" +
+                "Thread 2:\n    @r1 = read(X, rlx)\n\n" +
+                "Thread 3:\n    @r2 = read(X, rlx)";
+    }
+
+    private String litmus2p2W() {
+        return "// 2+2W — Two-Plus-Two Writes\n" +
+                "// r1=2, r2=1 FORBIDDEN — co must be consistent\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n    write(Y, 1, rlx)\n\n" +
+                "Thread 2:\n    write(Y, 2, rlx)\n    write(X, 2, rlx)";
+    }
+
+    private String litmusWRC() {
+        return "// WRC — Write-Read Causality\n" +
+                "// r1=1, r2=0 FORBIDDEN — causality must propagate\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n\n" +
+                "Thread 2:\n    @r1 = read(X, rlx)\n    write(Y, @r1, rlx)\n\n" +
+                "Thread 3:\n    @r2 = read(Y, rlx)\n    @r3 = read(X, rlx)";
+    }
+
+    private String litmusRMW() {
+        return "// RMW — Read-Modify-Write (atomic increment)\n" +
+                "// Both threads increment X: final X should be 2\n" +
+                "// r1=0, r2=1 ALLOWED  |  r1=1, r2=0 ALLOWED\n" +
+                "// r1=0, r2=0 FORBIDDEN — one increment lost\n" +
+                "init:\n    X = 0\n\n" +
+                "Thread 1:\n    @r1 = read(X, acq)\n    write(X, 1, rel)\n\n" +
+                "Thread 2:\n    @r2 = read(X, acq)\n    write(X, 2, rel)";
+    }
+
+    private String litmusISA2() {
+        return "// ISA2 — Store Forwarding + Coherence\n" +
+                "// r1=1, r2=1, r3=0 FORBIDDEN under strong models\n" +
+                "init:\n    X = 0\n    Y = 0\n    Z = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n    write(Y, 1, rel)\n\n" +
+                "Thread 2:\n    @r1 = read(Y, acq)\n    write(Z, @r1, rlx)\n\n" +
+                "Thread 3:\n    @r2 = read(Z, rlx)\n    @r3 = read(X, rlx)";
+    }
+
+    private String litmus3SB() {
+        return "// 3.SB — 3-Thread Store Buffering Ring\n" +
+                "// r1=0, r2=0, r3=0 ALLOWED — 3-way store buffering\n" +
+                "// Each thread writes its variable then reads the next thread's variable\n" +
+                "init:\n    X = 0\n    Y = 0\n    Z = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n    @r1 = read(Y, rlx)\n\n" +
+                "Thread 2:\n    write(Y, 1, rlx)\n    @r2 = read(Z, rlx)\n\n" +
+                "Thread 3:\n    write(Z, 1, rlx)\n    @r3 = read(X, rlx)";
+    }
+
+    private String litmusCoRW() {
+        return "// CoRW — Coherence Read-Write\n" +
+                "// r1=1 then co(W2,W1) FORBIDDEN — read-write coherence\n" +
+                "// If T2 reads T1's write, T2's own write must come after T1's in co\n" +
+                "init:\n    X = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n\n" +
+                "Thread 2:\n    @r1 = read(X, rlx)\n    write(X, 2, rlx)";
+    }
+
+    private String litmusLBfence() {
+        return "// LB+fence — Load Buffering with SC fences\n" +
+                "// r1=1, r2=1 FORBIDDEN — fences restore sequential consistency\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    @r1 = read(X, sc)\n    write(Y, 1, sc)\n\n" +
+                "Thread 2:\n    @r2 = read(Y, sc)\n    write(X, 1, sc)";
+    }
+
+    private String litmusSBfence() {
+        return "// SB+fence — Store Buffering with SC fences\n" +
+                "// r1=0, r2=0 FORBIDDEN — SC fences drain the store buffer\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    write(X, 1, sc)\n    @r1 = read(Y, sc)\n\n" +
+                "Thread 2:\n    write(Y, 1, sc)\n    @r2 = read(X, sc)";
+    }
+
+    private String litmusMPrelaxed() {
+        return "// MP+rlx — Message Passing with relaxed accesses\n" +
+                "// r1=1, r2=0 ALLOWED — without acq/rel, sync is lost\n" +
+                "// Compare with MP where acq/rel makes r1=1,r2=0 FORBIDDEN\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    write(X, 1, rlx)\n    write(Y, 1, rlx)\n\n" +
+                "Thread 2:\n    @r1 = read(Y, rlx)\n    @r2 = read(X, rlx)";
+    }
+
+    private String litmusOOTA() {
+        return "// OOTA — Out-of-Thin-Air\n" +
+                "// r1=42, r2=42 FORBIDDEN — values cannot appear from nowhere\n" +
+                "// WEAKEST specifically designed to forbid OOTA via justification\n" +
+                "init:\n    X = 0\n    Y = 0\n\n" +
+                "Thread 1:\n    @r1 = read(X, rlx)\n    write(Y, @r1, rlx)\n\n" +
+                "Thread 2:\n    @r2 = read(Y, rlx)\n    write(X, @r2, rlx)";
+    }
+
+    //noinspection CssUnknownUnit,CssUnknownProperty,CssInvalidPropertyValue,CssInvalidFunction
     private String graphStyle() {
         return "graph{padding:150px;}" +
                 "node{shape:rounded-box;size:150px,50px;fill-color:#313244;" +
@@ -1871,9 +2077,7 @@ public class MainController {
                 "edge.po{fill-color:#89b4fa;size:2px;}" +
                 "edge.co{fill-color:#cba6f7;size:2px;stroke-mode:dashes;}" +
                 "edge.sw{fill-color:#94e2d5;size:4px;}" +
-                "edge.cycle{fill-color:#ff0000;size:4px;text-color:#ff0000;}" +
-                "edge.conflict{fill-color:#ff6600;size:1px;stroke-mode:dashes;" +
-                "text-color:#ff6600;arrow-shape:arrow;arrow-size:10px,5px;}";
+                "edge.cycle{fill-color:#ff0000;size:4px;text-color:#ff0000;}";
     }
 
     public Pane getRoot() { return root; }
