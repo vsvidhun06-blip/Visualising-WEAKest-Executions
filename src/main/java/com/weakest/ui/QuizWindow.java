@@ -62,11 +62,11 @@ public class QuizWindow {
                     "r1=1,r2=0"
             ),
             new QuizQuestion("CYC",
-                    "// Cycle (OOTA prevention)\ninit:\n    X = 0\n    Y = 0\n\nThread 1:\n    @r1 = read(X, rlx)\n    write(Y, @r1, rlx)\n\nThread 2:\n    @r2 = read(Y, rlx)\n    write(X, @r2, rlx)",
-                    "Under WEAKEST, is the outcome  r1=1 AND r2=1  possible?",
-                    "💡 Where would the value 1 come from? Trace the dependency chain...",
+                    "// Cycle / SC fence test\ninit:\n    X = 0\n    Y = 0\n\nThread 1:\n    @r1 = read(X, sc)\n    write(Y, 1, sc)\n\nThread 2:\n    @r2 = read(Y, sc)\n    write(X, 1, sc)",
+                    "Under WEAKEST with SC operations, is the outcome  r1=1 AND r2=1  possible?",
+                    "💡 SC operations impose a total order — can both reads see the other's write simultaneously?",
                     false,
-                    "NO — r1=1, r2=1 is FORBIDDEN under WEAKEST. This would require an out-of-thin-air cycle: r1 reads 1 from X, which was written by Thread 2 using r2, which read 1 from Y, which was written by Thread 1 using r1. The value 1 has no justification! WEAKEST's justification requirement blocks this cycle.",
+                    "NO — r1=1, r2=1 is FORBIDDEN even under WEAKEST when using SC (sequentially consistent) operations. SC operations impose a total order on all SC accesses. For both r1 and r2 to read 1, each write must be observed before the other's read — but this creates a cycle in the SC order, which violates psc-acyclicity. This outcome is forbidden in ALL five memory models.",
                     "r1=1,r2=1"
             ),
             new QuizQuestion("IRIW",
@@ -241,6 +241,7 @@ public class QuizWindow {
         // Feedback panel (shown after answer)
         feedbackPanel = new VBox(10);
         feedbackPanel.setVisible(false);
+        feedbackPanel.setManaged(false);
 
         // Log
         Label logLbl = new Label("Execution Log:");
@@ -309,7 +310,9 @@ public class QuizWindow {
         stage.requestFocus();
     }
 
+    // =========================================================================
     // Question loading
+    // =========================================================================
 
     private void loadCurrentQuestion() {
         if (currentQuestionIdx >= QUESTIONS.size()) {
@@ -372,7 +375,8 @@ public class QuizWindow {
 
     private void buildAnswerPanel() {
         answerPanel.getChildren().clear();
-        QuizQuestion q = QUESTIONS.get(currentQuestionIdx);
+
+        boolean done = executionState != null && executionState.allThreadsDone();
 
         Label answerLbl = new Label("📝  Your Answer:");
         answerLbl.setFont(Font.font("Arial", FontWeight.BOLD, 13));
@@ -383,47 +387,48 @@ public class QuizWindow {
         subLbl.setTextFill(Color.web("#6c7086"));
         subLbl.setWrapText(true);
 
+        Label reminderLbl = new Label("\u26A0\uFE0F  Complete the execution first, then answer.");
+        reminderLbl.setFont(Font.font("Arial", FontPosture.ITALIC, 11));
+        reminderLbl.setTextFill(Color.web("#f9e2af"));
+        reminderLbl.setWrapText(true);
+        reminderLbl.setVisible(!done);
+        reminderLbl.setManaged(!done);
+
         HBox btnRow = new HBox(10);
         btnRow.setAlignment(Pos.CENTER_LEFT);
 
-        Button yesBtn = new Button("✅  YES — It's Possible");
-        yesBtn.setStyle("-fx-background-color:#a6e3a1;-fx-text-fill:#1e1e2e;-fx-font-weight:bold;-fx-padding:10 16;");
+        Button yesBtn = new Button("\u2705  YES \u2014 It's Possible");
+        yesBtn.setStyle("-fx-background-color:" + (done ? "#a6e3a1" : "#585b70") +
+                ";-fx-text-fill:" + (done ? "#1e1e2e" : "#9399b2") +
+                ";-fx-font-weight:bold;-fx-padding:10 16;");
+        yesBtn.setDisable(!done);
         yesBtn.setOnAction(e -> submitAnswer(true));
 
-        Button noBtn = new Button("❌  NO — It's Forbidden");
-        noBtn.setStyle("-fx-background-color:#f38ba8;-fx-text-fill:#1e1e2e;-fx-font-weight:bold;-fx-padding:10 16;");
+        Button noBtn = new Button("\u274C  NO \u2014 It's Forbidden");
+        noBtn.setStyle("-fx-background-color:" + (done ? "#f38ba8" : "#585b70") +
+                ";-fx-text-fill:" + (done ? "#1e1e2e" : "#9399b2") +
+                ";-fx-font-weight:bold;-fx-padding:10 16;");
+        noBtn.setDisable(!done);
         noBtn.setOnAction(e -> submitAnswer(false));
 
         btnRow.getChildren().addAll(yesBtn, noBtn);
-        answerPanel.getChildren().addAll(answerLbl, subLbl, btnRow);
+        answerPanel.getChildren().addAll(answerLbl, subLbl, reminderLbl, btnRow);
     }
 
+    // =========================================================================
     // Answer submission & validation
+    // =========================================================================
 
     private void submitAnswer(boolean userSaidYes) {
         QuizQuestion q = QUESTIONS.get(currentQuestionIdx);
         boolean correct = (userSaidYes == q.correctAnswer());
-
-        // Validate against actual execution if complete
-        boolean executionComplete = executionState != null && executionState.allThreadsDone();
-        String validationNote = "";
-        if (executionComplete) {
-            boolean executionMatchesAnswer = validateExecution(q, userSaidYes);
-            if (!executionMatchesAnswer) {
-                validationNote = "\n\n⚠️  Note: Your execution doesn't demonstrate the outcome you claimed. " +
-                        "Try building an execution that actually shows " + q.outcomeToCheck() + ".";
-                correct = false;
-            }
-        } else {
-            validationNote = "\n\n💡 Tip: Try completing the execution first to see the outcome directly!";
-        }
 
         if (correct) score++;
         totalAnswered++;
         answerHistory.add(correct);
         scoreLabel.setText("Score: " + score + " / " + totalAnswered);
 
-        showFeedback(correct, q.explanation() + validationNote);
+        showFeedback(correct, q.explanation());
     }
 
     private boolean validateExecution(QuizQuestion q, boolean userSaidYes) {
@@ -454,8 +459,10 @@ public class QuizWindow {
 
     private void showFeedback(boolean correct, String explanation) {
         answerPanel.setVisible(false);
+        answerPanel.setManaged(false);
         feedbackPanel.getChildren().clear();
         feedbackPanel.setVisible(true);
+        feedbackPanel.setManaged(true);
 
         String emoji = correct ? "🎉" : "❌";
         String verdict = correct ? "Correct!" : "Incorrect";
@@ -484,6 +491,7 @@ public class QuizWindow {
         nextBtn.setOnAction(e -> {
             currentQuestionIdx++;
             answerPanel.setVisible(true);
+            answerPanel.setManaged(true);
             loadCurrentQuestion();
         });
 
@@ -492,7 +500,9 @@ public class QuizWindow {
         setContext(correct ? "🎉  Well done!" : "📖  Keep learning!", explanation.substring(0, Math.min(80, explanation.length())) + "...", color);
     }
 
+    // =========================================================================
     // Final score screen
+    // =========================================================================
 
     private void showFinalScore() {
         // Replace center with score screen
@@ -557,7 +567,9 @@ public class QuizWindow {
         stage.getScene().setRoot(sp);
     }
 
+    // =========================================================================
     // Thread execution (mirrors MainController logic)
+    // =========================================================================
 
     private void updateButtons() {
         threadButtonsBox.getChildren().clear();
@@ -618,6 +630,7 @@ public class QuizWindow {
                         ? program.getThreads().get(idx).size() : shadowPCs[idx] + 1;
                 graph.setAttribute("ui.stylesheet", graphStyle());
                 updateButtons();
+                buildAnswerPanel();
                 if (executionState.allThreadsDone()) {
                     setContext("✅  Execution complete!", "Now submit your answer below.", "#a6e3a1");
                 }
@@ -679,6 +692,7 @@ public class QuizWindow {
                     ? program.getThreads().get(saved).size() : shadowPCs[saved]+1;
             graph.setAttribute("ui.stylesheet", graphStyle());
             updateButtons();
+            buildAnswerPanel();
             if (executionState.allThreadsDone())
                 setContext("✅  Execution complete!", "Now submit your answer below.", "#a6e3a1");
         });
@@ -690,14 +704,18 @@ public class QuizWindow {
         eventStructure.addEvent(read);
         eventStructure.addReadsFrom(read, write);
         Event last = executionState.getLastEventForThread(idx);
-        if(last!=null){ eventStructure.addProgramOrder(last,read); addEdge(last,read,"po"); }
+        if(last!=null){ eventStructure.addProgramOrder(last,read); }
         executionState.setLastEventForThread(idx,read);
         executionState.setLocalVar(instr.getLocalVar(), read.getValue());
         executionState.advanceThread(idx);
-        addNode(read,"read"); addEdge(write,read,"rf");
+        // CRITICAL: addNode BEFORE any addEdge calls
+        addNode(read, "read");
+        if (last != null) addEdge(last, read, "po");
+        addEdge(write, read, "rf");
         boolean sw = (write.getMemoryOrder()==MemoryOrder.RELEASE||write.getMemoryOrder()==MemoryOrder.SC)
                 && (read.getMemoryOrder()==MemoryOrder.ACQUIRE||read.getMemoryOrder()==MemoryOrder.SC);
         if(sw) addSwEdge(write,read);
+        graph.setAttribute("ui.stylesheet", graphStyle());
         log("✅ "+instr.getLocalVar()+"="+read.getValue());
     }
 
@@ -719,7 +737,9 @@ public class QuizWindow {
         log("✅ write("+instr.getVariable()+"="+val+")");
     }
 
+    // =========================================================================
     // Undo
+    // =========================================================================
 
     private void pushSnapshot() {
         if(program==null) return;
@@ -762,6 +782,7 @@ public class QuizWindow {
         undoButton.setDisable(undoStack.isEmpty());
         undoCountLabel.setText(undoStack.isEmpty()?"":"("+undoStack.size()+")");
         updateButtons();
+        buildAnswerPanel();
         setContext("↩ Undone", "Choose a different execution path.", "#89b4fa");
     }
 
@@ -818,7 +839,9 @@ public class QuizWindow {
         System.arraycopy(pcs,0,shadowPCs,0,pcs.length);
     }
 
+    // =========================================================================
     // Graph helpers
+    // =========================================================================
 
     private double columnX(int tid) {
         int total=(program!=null?program.getThreadCount():0)+1;
@@ -851,8 +874,9 @@ public class QuizWindow {
         e.setAttribute("ui.class","sw"); e.setAttribute("ui.label","sw");
     }
 
-
+    // =========================================================================
     // Context / pulse helpers
+    // =========================================================================
 
     private void setContext(String title, String body, String colour) {
         stopContextPulse();
@@ -880,7 +904,9 @@ public class QuizWindow {
     }
     private void log(String msg) { logArea.appendText(msg+"\n"); }
 
+    // =========================================================================
     // Legend + Graph style
+    // =========================================================================
 
     private VBox buildLegend() {
         VBox box = new VBox(4);
