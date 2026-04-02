@@ -53,9 +53,9 @@ public class ExecutionSnapshot {
         return Collections.unmodifiableMap(copy);
     }
 
-    // -------------------------------------------------------------------------
+
     // Inner records — lightweight data holders
-    // -------------------------------------------------------------------------
+
 
     public record EventRecord(
             int id,

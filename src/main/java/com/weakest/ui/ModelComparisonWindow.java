@@ -14,14 +14,6 @@ import javafx.stage.Stage;
 import java.util.*;
 import java.util.concurrent.*;
 
-/**
- * Full-screen window comparing 5 memory models side-by-side:
- *   SC | TSO | PSO | RA | WEAKEST
- *
- * For each model, shows which outcomes are ALLOWED.
- * Outcomes exclusive to weaker models are highlighted.
- * A summary table at the top shows the model hierarchy.
- */
 public class ModelComparisonWindow {
 
     // -- Model definitions ---------------------------------------------
@@ -40,7 +32,7 @@ public class ModelComparisonWindow {
             "WEAKEST\nMaximally weak -- allows all outcomes\nnot forbidden by the justification\nsequence (prevents OOTA)."
     };
 
-    // -- State ---------------------------------------------------------
+    // State ---------------------------------------------------------
     private final Program program;
     private final String  litmusName;
     private Stage         stage;
@@ -64,7 +56,7 @@ public class ModelComparisonWindow {
         buildStage();
     }
 
-    // -- Show ----------------------------------------------------------
+    //Show ----------------------------------------------------------
 
     public void show() {
         stage.show();
@@ -74,7 +66,7 @@ public class ModelComparisonWindow {
         startEnumeration();
     }
 
-    // -- Build Stage ---------------------------------------------------
+    // Build Stage ---------------------------------------------------
 
     private void buildStage() {
         stage = new Stage();
@@ -105,7 +97,7 @@ public class ModelComparisonWindow {
 
         header.getChildren().addAll(title, sp, spinner, statusLabel, closeBtn);
 
-        // -- Model info cards ------------------------------------------
+        // Model info cards ------------------------------------------
         HBox modelCards = new HBox(6);
         modelCards.setPadding(new Insets(10, 14, 10, 14));
         modelCards.setStyle("-fx-background-color:#181825;");
@@ -113,7 +105,7 @@ public class ModelComparisonWindow {
             modelCards.getChildren().add(buildModelCard(i));
         }
 
-        // -- Hierarchy label -------------------------------------------
+        // Hierarchy label -------------------------------------------
         HBox hierarchyBar = new HBox();
         hierarchyBar.setPadding(new Insets(6, 16, 6, 16));
         hierarchyBar.setAlignment(Pos.CENTER_LEFT);
@@ -169,7 +161,7 @@ public class ModelComparisonWindow {
         stage.setMaximized(true);
     }
 
-    // -- Background enumeration ----------------------------------------
+    // Background enumeration ----------------------------------------
 
     private void startEnumeration() {
         ExecutorService exec = Executors.newSingleThreadExecutor(r -> {
@@ -250,7 +242,7 @@ public class ModelComparisonWindow {
         statusLabel.setTextFill(Color.web("#a6e3a1"));
     }
 
-    // -- Row builder ---------------------------------------------------
+    // Row builder ---------------------------------------------------
 
     private HBox buildOutcomeRow(String outcome, boolean alternate) {
         HBox row = new HBox(0);
@@ -325,7 +317,7 @@ public class ModelComparisonWindow {
         return "Not observed in any model";
     }
 
-    // -- UI helpers ----------------------------------------------------
+    // UI helpers ----------------------------------------------------
 
     private VBox buildModelCard(int i) {
         VBox card = new VBox(4);

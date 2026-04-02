@@ -43,7 +43,7 @@ public class MainController {
     private final Map<String, String>   nodeCssClass = new LinkedHashMap<>();
     private final Map<String, double[]> nodeXY       = new LinkedHashMap<>();
 
-    // ── Layout ────────────────────────────────────────────────────────
+    // Layout ────────────────────────────────────────────────────────
     private static final double COLUMN_SPACING = 300.0;
     private static final double ROW_SPACING    = 150.0;
     private final Map<Integer, Integer> threadEventCount = new HashMap<>();
@@ -101,9 +101,7 @@ public class MainController {
         Platform.runLater(this::showWelcomeDialog);
     }
 
-    // =========================================================================
     // Welcome dialog
-    // =========================================================================
 
     private void showWelcomeDialog() {
         Stage w = new Stage();
@@ -169,9 +167,7 @@ public class MainController {
         w.show();
     }
 
-    // =========================================================================
     // UI construction
-    // =========================================================================
 
     @SuppressWarnings("all")
     private void buildUI() {
@@ -298,7 +294,7 @@ public class MainController {
 
         VBox hintBox = buildHintRow();
 
-        // ── Forbidden Zone panel ──────────────────────────────────────
+        // Forbidden Zone panel ──────────────────────────────────────
         forbiddenTitle = new Label("🚫  Forbidden Zone");
         forbiddenTitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
         forbiddenTitle.setTextFill(Color.web("#f38ba8"));
@@ -333,7 +329,7 @@ public class MainController {
         leftScroll.setFitToWidth(true);
         leftScroll.setStyle("-fx-background-color:#181825;-fx-background:#181825;-fx-border-color:transparent;");
 
-        // ── Graph area ────────────────────────────────────────────────
+        // Graph area ────────────────────────────────────────────────
         graph = new MultiGraph("ES");
         graph.setAttribute("ui.stylesheet", graphStyle());
         graph.setAttribute("ui.quality");
@@ -422,9 +418,7 @@ public class MainController {
                 "-fx-background-radius:4;";
     }
 
-    // =========================================================================
     // Context panel helpers
-    // =========================================================================
 
     private void setContext(String title, String body, String colour) {
         stopContextPulse();
@@ -519,9 +513,7 @@ public class MainController {
         }
     }
 
-    // =========================================================================
     // Forbidden Zone panel
-    // =========================================================================
 
     private void refreshForbiddenZone() {
         if (program == null || currentLitmus == null || executionState == null) {
@@ -761,9 +753,7 @@ public class MainController {
         return executionState.getAllLocalVars();
     }
 
-    // =========================================================================
     // Inline read-from choice
-    // =========================================================================
 
     private void showInlineChoice(int idx, Instruction instr, List<Event> valid) {
         pendingThreadIdx = idx;
@@ -909,9 +899,7 @@ public class MainController {
         startContextPulse("#f9e2af");
     }
 
-    // =========================================================================
     // Hint panel
-    // =========================================================================
 
     private VBox buildHintRow() {
         VBox box = new VBox(6);
@@ -1018,9 +1006,7 @@ public class MainController {
         d.show();
     }
 
-    // =========================================================================
     // Explanation window
-    // =========================================================================
 
     private void openExplanationWindow() {
         if (explanationWindow == null) explanationWindow = new ExplanationWindow();
@@ -1095,9 +1081,7 @@ public class MainController {
             explanationWindow.update(eventStructure, executionState, program, msg);
     }
 
-    // =========================================================================
     // Thread buttons
-    // =========================================================================
 
     private void updateButtons() {
         threadButtonsBox.getChildren().clear();
@@ -1141,9 +1125,7 @@ public class MainController {
         threadButtonsBox.getChildren().add(row);
     }
 
-    // =========================================================================
     // Undo
-    // =========================================================================
 
     private void pushSnapshot() {
         if (program == null) return;
@@ -1258,9 +1240,7 @@ public class MainController {
 
     private int[] getField_threadPCs() { return Arrays.copyOf(shadowPCs, program.getThreadCount()); }
 
-    // =========================================================================
     // Layout helpers
-    // =========================================================================
 
     private double columnX(int tid) {
         int total=(program!=null?program.getThreadCount():0)+1;
@@ -1277,9 +1257,7 @@ public class MainController {
                 && (r.getMemoryOrder()==MemoryOrder.ACQUIRE||r.getMemoryOrder()==MemoryOrder.SC);
     }
 
-    // =========================================================================
     // Program lifecycle
-    // =========================================================================
 
     private void loadProgram() {
         Event.resetCounter(); undoStack.clear(); Arrays.fill(shadowPCs,0);
@@ -1406,9 +1384,7 @@ public class MainController {
                 ev -> e.removeAttribute("ui.style"))).play();
     }
 
-    // =========================================================================
     // Graph click → tooltip explanation
-    // =========================================================================
 
     private void handleGraphClick(javafx.scene.input.MouseEvent evt) {
         if (eventStructure == null || nodeXY.isEmpty()) return;
@@ -1605,7 +1581,7 @@ public class MainController {
 
     private void showTooltipCard(String typeTag, String title, String colour,
                                  List<String[]> rows, String badge) {
-        // ── Build card content ────────────────────────────────────────
+        // Build card content ────────────────────────────────────────
         tooltipPanel.getChildren().clear();
 
         // Top colour bar
@@ -1685,7 +1661,7 @@ public class MainController {
                 "-fx-border-radius:10;-fx-background-radius:10;" +
                 "-fx-effect:dropshadow(gaussian," + colour + ",16,0.35,0,0);");
 
-        // ── Position near click ───────────────────────────────────────
+        // Position near click ───────────────────────────────────────
         tooltipPanel.setVisible(true);
         tooltipPanel.setManaged(true);
         tooltipPanel.applyCss();
@@ -1702,7 +1678,7 @@ public class MainController {
         if (ty + panelH > graphH - 4) ty = graphH - panelH - 4;
         StackPane.setMargin(tooltipPanel, new Insets(ty, 0, 0, tx));
 
-        // ── Pop animation ─────────────────────────────────────────────
+        //  Pop animation ─────────────────────────────────────────────
         if (tooltipDismissTimer != null) tooltipDismissTimer.stop();
         tooltipPanel.setScaleX(0.65);
         tooltipPanel.setScaleY(0.65);
@@ -1779,9 +1755,7 @@ public class MainController {
         notifyExplanation("T"+(idx+1)+" wrote "+instr.getVariable()+"="+val);
     }
 
-    // =========================================================================
     // Graph mutation
-    // =========================================================================
 
     private void addNode(Event e, String css) {
         String id="e"+e.getId(); if(graph.getNode(id)!=null) return;
@@ -1828,9 +1802,7 @@ public class MainController {
         e.setAttribute("ui.class","sw"); e.setAttribute("ui.label","sw");
     }
 
-    // =========================================================================
     // Reset
-    // =========================================================================
 
     private void resetExecution() {
         if(program==null) return;
@@ -1851,9 +1823,7 @@ public class MainController {
         log("⟳ Reset."); notifyExplanation("⟳ Reset.");
     }
 
-    // =========================================================================
     // Predict outcome
-    // =========================================================================
 
     private String predictOutcome(Instruction instr, Event write, int idx) {
         if(currentLitmus==null) return "Custom program — explore freely!";
@@ -1897,9 +1867,8 @@ public class MainController {
         };
     }
 
-    // =========================================================================
+
     // UI helpers
-    // =========================================================================
 
     private Label styled(String text, String colour, int size, boolean bold) {
         Label l = new Label(text);
@@ -1922,9 +1891,9 @@ public class MainController {
     }
     private void log(String msg) { logArea.appendText(msg+"\n"); }
 
-    // =========================================================================
+
     // Litmus programs
-    // =========================================================================
+
 
     private String defaultProgram() {
         return "init:\n    X = 0\n    Y = 0\n\n" +
@@ -1958,7 +1927,7 @@ public class MainController {
                 "Thread 4:\n    @r3 = read(Y, rlx)\n    @r4 = read(X, rlx)";
     }
 
-    // ── New litmus tests ──────────────────────────────────────────────
+    //  New litmus tests ──────────────────────────────────────────────
 
     private String litmusCoRR() {
         return "// CoRR — Coherence Read-Read\n" +

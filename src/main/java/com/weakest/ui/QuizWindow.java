@@ -25,7 +25,7 @@ import java.util.*;
 
 public class QuizWindow {
 
-    // ── Quiz questions ────────────────────────────────────────────────
+    // Quiz questions ────────────────────────────────────────────────
     record QuizQuestion(
             String litmusName,
             String program,
@@ -85,7 +85,7 @@ public class QuizWindow {
     private int totalAnswered = 0;
     private final List<Boolean> answerHistory = new ArrayList<>();
 
-    // ── Model (per question) ──────────────────────────────────────────
+    // Model (per question) ──────────────────────────────────────────
     private Program        program;
     private EventStructure eventStructure;
     private ExecutionState executionState;
@@ -101,12 +101,12 @@ public class QuizWindow {
     private final int[] shadowPCs = new int[64];
     private final Deque<ExecutionSnapshot> undoStack = new ArrayDeque<>();
 
-    // ── Pending read ──────────────────────────────────────────────────
+    // Pending read ──────────────────────────────────────────────────
     private int         pendingThreadIdx = -1;
     private Instruction pendingInstr;
     private List<Event> pendingValid;
 
-    // ── UI ────────────────────────────────────────────────────────────
+    // UI ────────────────────────────────────────────────────────────
     private Stage stage;
     private double screenW, screenH;
     private VBox   threadButtonsBox;
@@ -124,7 +124,7 @@ public class QuizWindow {
     private Button undoButton;
     private Label  undoCountLabel;
 
-    // ── Build ─────────────────────────────────────────────────────────
+    // Build ─────────────────────────────────────────────────────────
     public QuizWindow() {
         System.setProperty("org.graphstream.ui", "javafx");
         Rectangle2D screen = Screen.getPrimary().getVisualBounds();
@@ -137,7 +137,7 @@ public class QuizWindow {
         stage = new Stage();
         stage.setTitle("🎓  WEAKEST Quiz Mode");
 
-        // ── Header ────────────────────────────────────────────────────
+        // Header ────────────────────────────────────────────────────
         HBox header = new HBox(16);
         header.setPadding(new Insets(12, 16, 12, 16));
         header.setAlignment(Pos.CENTER_LEFT);
@@ -310,9 +310,7 @@ public class QuizWindow {
         stage.requestFocus();
     }
 
-    // =========================================================================
     // Question loading
-    // =========================================================================
 
     private void loadCurrentQuestion() {
         if (currentQuestionIdx >= QUESTIONS.size()) {
@@ -369,9 +367,7 @@ public class QuizWindow {
         log("📋 Question " + (currentQuestionIdx + 1) + ": " + q.litmusName());
     }
 
-    // =========================================================================
     // Answer panel
-    // =========================================================================
 
     private void buildAnswerPanel() {
         answerPanel.getChildren().clear();
@@ -415,9 +411,7 @@ public class QuizWindow {
         answerPanel.getChildren().addAll(answerLbl, subLbl, reminderLbl, btnRow);
     }
 
-    // =========================================================================
     // Answer submission & validation
-    // =========================================================================
 
     private void submitAnswer(boolean userSaidYes) {
         QuizQuestion q = QUESTIONS.get(currentQuestionIdx);
@@ -500,9 +494,7 @@ public class QuizWindow {
         setContext(correct ? "🎉  Well done!" : "📖  Keep learning!", explanation.substring(0, Math.min(80, explanation.length())) + "...", color);
     }
 
-    // =========================================================================
     // Final score screen
-    // =========================================================================
 
     private void showFinalScore() {
         // Replace center with score screen
@@ -567,9 +559,7 @@ public class QuizWindow {
         stage.getScene().setRoot(sp);
     }
 
-    // =========================================================================
     // Thread execution (mirrors MainController logic)
-    // =========================================================================
 
     private void updateButtons() {
         threadButtonsBox.getChildren().clear();
@@ -737,9 +727,7 @@ public class QuizWindow {
         log("✅ write("+instr.getVariable()+"="+val+")");
     }
 
-    // =========================================================================
     // Undo
-    // =========================================================================
 
     private void pushSnapshot() {
         if(program==null) return;
@@ -839,9 +827,7 @@ public class QuizWindow {
         System.arraycopy(pcs,0,shadowPCs,0,pcs.length);
     }
 
-    // =========================================================================
     // Graph helpers
-    // =========================================================================
 
     private double columnX(int tid) {
         int total=(program!=null?program.getThreadCount():0)+1;
@@ -874,9 +860,7 @@ public class QuizWindow {
         e.setAttribute("ui.class","sw"); e.setAttribute("ui.label","sw");
     }
 
-    // =========================================================================
     // Context / pulse helpers
-    // =========================================================================
 
     private void setContext(String title, String body, String colour) {
         stopContextPulse();
@@ -904,9 +888,7 @@ public class QuizWindow {
     }
     private void log(String msg) { logArea.appendText(msg+"\n"); }
 
-    // =========================================================================
     // Legend + Graph style
-    // =========================================================================
 
     private VBox buildLegend() {
         VBox box = new VBox(4);

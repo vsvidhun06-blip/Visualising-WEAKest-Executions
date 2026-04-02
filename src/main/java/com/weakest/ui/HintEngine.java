@@ -6,7 +6,7 @@ import java.util.*;
 
 public class HintEngine {
 
-    // ── Enums / inner classes ─────────────────────────────────────────────────
+    // Enums / inner classes ─────────────────────────────────────────────────
 
     public enum ThreadStatus { CAN_EXECUTE, NEEDS_CHOICE, DONE }
 
@@ -56,7 +56,7 @@ public class HintEngine {
         }
     }
 
-    // ── Thread statuses ───────────────────────────────────────────────────────
+    // Thread statuses ───────────────────────────────────────────────────────
 
     public List<ThreadInfo> getThreadStatuses(Program program, ExecutionState state,
                                               EventStructure es, ConsistencyChecker checker) {
@@ -85,7 +85,7 @@ public class HintEngine {
         return result;
     }
 
-    // ── RfHint ────────────────────────────────────────────────────────────────
+    // RfHint ────────────────────────────────────────────────────────────────
 
     public RfHint buildRfHint(ReadEvent read, List<Event> validWrites,
                               EventStructure es, ConsistencyChecker checker) {
@@ -117,7 +117,7 @@ public class HintEngine {
         return new RfHint(summary, choices, warn);
     }
 
-    // ── Reveal Path ───────────────────────────────────────────────────────────
+    // Reveal Path ───────────────────────────────────────────────────────────
 
     /** Backward-compatible overload for callers that don't have state/es */
     public RevealPath getRevealPath(String litmusName) {

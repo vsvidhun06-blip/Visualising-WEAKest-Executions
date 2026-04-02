@@ -21,15 +21,7 @@ import org.graphstream.ui.fx_viewer.FxViewer;
 import java.util.*;
 import java.util.concurrent.*;
 
-/**
- * Full-screen window comparing any two memory models side-by-side.
- * Models: SC, TSO, PSO, RA, WEAKEST.
- * Defaults to SC (left) vs WEAKEST (right).
- *
- * Header: two ComboBoxes + Compare button to re-run with new selection.
- * Middle: clickable outcome lists for each chosen model.
- * Bottom: execution graph panels — click an outcome to load its graph.
- */
+
 public class ComparisonWindow {
 
     // -- Layout constants ----------------------------------------------
@@ -188,7 +180,7 @@ public class ComparisonWindow {
         tables.setMaxHeight(280);
         tables.setPrefHeight(240);
 
-        // -- Graph panels (bottom half) ────────────────────────────────
+        //  Graph panels (bottom half) ────────────────────────────────
         leftGraph  = new MultiGraph("CmpLeft");
         rightGraph = new MultiGraph("CmpRight");
         applyGraphStyle(leftGraph);
@@ -783,7 +775,7 @@ public class ComparisonWindow {
 
     private String plural(int n) { return n == 1 ? "" : "s"; }
 
-    // ── Graph click tooltip system ────────────────────────────────────
+    // Graph click tooltip system ────────────────────────────────────
 
     private VBox buildTooltipPanel() {
         VBox tp = new VBox(0);

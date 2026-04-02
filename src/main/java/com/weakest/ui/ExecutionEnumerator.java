@@ -224,7 +224,7 @@ public class ExecutionEnumerator {
         return true;
     }
 
-    // ── Post-hoc rf assignment enumeration ────────────────────────────
+    // Post-hoc rf assignment enumeration ────────────────────────────
 
     @FunctionalInterface
     private interface RfValidator {
@@ -522,15 +522,7 @@ public class ExecutionEnumerator {
         }
     }
 
-    // ── TSO write set ─────────────────────────────────────────────────
-    // TSO: store-load reordering allowed; store-store ordering preserved.
-    // A read in thread T can see any write in co order, BUT:
-    //   - If T itself has written to this variable (store buffer), it must
-    //     see its own latest write (store-buffer forwarding).
-    //   - Otherwise, it must see at least the write that is co-after any
-    //     write already read by this thread (coherence-per-location: once
-    //     a thread sees write W, it cannot later see a co-predecessor of W).
-    // Net effect vs SC: allows stale reads from OTHER threads' writes.
+
     private List<Event> getTSOWrites(DfsState state, int tidx, Instruction instr) {
         String var = instr.getVariable();
         List<Integer> coList = state.es.getCoherenceOrder()
@@ -569,11 +561,7 @@ public class ExecutionEnumerator {
                 state.es.getEventById(coList.get(coList.size() - 1))) : result;
     }
 
-    // ── PSO write set ─────────────────────────────────────────────────
-    // PSO: store-store reordering ALSO allowed (per variable).
-    // A read can see any write in co order -- no coherence-per-location
-    // constraint from this thread's previous reads.
-    // More relaxed than TSO: can observe stale values even after seeing newer ones.
+
     private List<Event> getPSOWrites(DfsState state, int tidx, Instruction instr) {
         String var = instr.getVariable();
         List<Integer> coList = state.es.getCoherenceOrder()
@@ -586,12 +574,6 @@ public class ExecutionEnumerator {
         return result;
     }
 
-    // ── RA write set ──────────────────────────────────────────────────
-    // RA: acquire reads must see only release/sc writes (or init).
-    // Relaxed reads can see any write in co order.
-    // Stricter than WEAKEST (no out-of-thin-air), more relaxed than SC.
-    // Key difference from SC: rlx reads are unconstrained by co.
-    // Key difference from WEAKEST: acq reads are constrained to rel/sc writes.
     private List<Event> getRAWrites(DfsState state, int tidx, Instruction instr) {
         String var = instr.getVariable();
         List<Integer> coList = state.es.getCoherenceOrder()
@@ -709,7 +691,7 @@ public class ExecutionEnumerator {
         return last != null ? List.of(last) : Collections.emptyList();
     }
 
-    // ── State transitions ─────────────────────────────────────────────
+    // State transitions ─────────────────────────────────────────────
 
     private DfsState applyRead(DfsState state, int tidx,
                                Instruction instr, Event srcWrite) {
@@ -765,7 +747,7 @@ public class ExecutionEnumerator {
         return new DfsState(newEs, newPCs, newVars, newLast, newNextId);
     }
 
-    // ── Misc helpers ─────────────────────────────────────────────────
+    // Misc helpers ─────────────────────────────────────────────────
 
     private boolean allDone(DfsState state, Program program) {
         for (int i = 0; i < program.getThreadCount(); i++) {
